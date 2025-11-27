@@ -1,111 +1,138 @@
 import tkinter as tk
-import networkx as nx
-import matplotlib
-matplotlib.use("TkAgg")  # Use the TkAgg backend
-from matplotlib import pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import ttk, messagebox
 
 class DeadlockDetector:
     def __init__(self, root):
         self.root = root
         self.root.title("Deadlock Detection Tool")
+        self.root.geometry("850x800")
+        self.root.configure(bg="#f4f6f8")  # Very soft professional gray background
+
         self.entries_alloc = []
         self.entries_req = []
         self.entries_total = []
-        self.num_proc = 0
-        self.num_res = 0
-        self.graph_window = None # To hold the graph window
 
-        # Process/Resource Count Input
-        tk.Label(root, text="Enter number of processes:").pack()
-        self.entry_proc = tk.Entry(root)
-        self.entry_proc.pack()
+        # --- Title ---
+        title = tk.Label(root, text="Deadlock Detection System",
+                         font=("Segoe UI", 24, "bold"),
+                         bg="#f4f6f8", fg="#1f2937", pady=20)
+        title.pack()
 
-        tk.Label(root, text="Enter number of resources:").pack()
-        self.entry_res = tk.Entry(root)
-        self.entry_res.pack()
+        # --- Input Frame ---
+        input_frame = tk.Frame(root, bg="#ffffff", bd=1, relief="solid")
+        input_frame.pack(pady=20, padx=30, fill="x")
 
-        tk.Button(root, text="Generate Input Tables", command=self.generate_tables).pack(pady=5)
-        self.table_frame = tk.Frame(root)
-        self.table_frame.pack()
+        tk.Label(input_frame, text="Number of Processes:", font=("Segoe UI", 12), bg="#ffffff").grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        self.entry_proc = tk.Entry(input_frame, width=10, font=("Segoe UI", 11), bg="#e5e7eb", bd=1, relief="solid")
+        self.entry_proc.grid(row=0, column=1, padx=10, pady=10)
 
-        self.btn_detect = tk.Button(root, text="Detect Deadlock & Show Graph", command=self.detect_deadlock_and_draw)
-        self.btn_detect.pack(pady=10)
+        tk.Label(input_frame, text="Number of Resources:", font=("Segoe UI", 12), bg="#ffffff").grid(row=1, column=0, padx=10, pady=10, sticky="e")
+        self.entry_res = tk.Entry(input_frame, width=10, font=("Segoe UI", 11), bg="#e5e7eb", bd=1, relief="solid")
+        self.entry_res.grid(row=1, column=1, padx=10, pady=10)
+
+        style = ttk.Style()
+        style.configure("Accent.TButton",
+                        font=("Segoe UI", 11, "bold"),
+                        foreground="#ffffff",
+                        background="#2563eb",
+                        padding=6)
+        style.map("Accent.TButton",
+                  background=[("active", "#1d4ed8")])
+
+        generate_btn = ttk.Button(input_frame, text="Generate Tables", command=self.generate_tables, style="Accent.TButton")
+        generate_btn.grid(row=2, column=0, columnspan=2, pady=20)
+
+        # --- Preset Button ---
+        preset_btn = ttk.Button(input_frame, text="Load Preset Matrices", command=self.preset_matrices, style="Accent.TButton")
+        preset_btn.grid(row=3, column=0, columnspan=2, pady=10)
+
+        # --- Table Frame ---
+        self.table_frame = tk.Frame(root, bg="#ffffff", bd=1, relief="solid")
+        self.table_frame.pack(pady=20, padx=30, fill="both", expand=True)
+
+        # --- Bottom Buttons ---
+        button_frame = tk.Frame(root, bg="#f4f6f8")
+        button_frame.pack(pady=20)
+
+        detect_btn = ttk.Button(button_frame, text="Detect Deadlock", command=self.detect_deadlock, style="Accent.TButton")
+        detect_btn.grid(row=0, column=0, padx=30)
+
+        clear_btn = ttk.Button(button_frame, text="Clear All", command=self.clear_all, style="Accent.TButton")
+        clear_btn.grid(row=0, column=1, padx=30)
 
     def generate_tables(self):
         for widget in self.table_frame.winfo_children():
             widget.destroy()
+
         self.entries_alloc, self.entries_req, self.entries_total = [], [], []
 
         try:
             self.num_proc = int(self.entry_proc.get())
             self.num_res = int(self.entry_res.get())
         except ValueError:
-            self.show_popup("Please enter valid integers for process and resource counts.")
+            messagebox.showerror("Input Error", "Please enter valid integers for processes and resources.")
             return
 
         # Allocation Matrix
-        tk.Label(self.table_frame, text="Allocation Matrix").grid(row=0, column=0, columnspan=self.num_res + 1, pady=(0, 5))
-        tk.Label(self.table_frame, text="").grid(row=1, column=0) # Empty cell for spacing
-        for j in range(self.num_res):
-            tk.Label(self.table_frame, text=f"R{j}").grid(row=1, column=j + 1)
+        tk.Label(self.table_frame, text="Allocation Matrix", font=("Segoe UI", 13, "bold"), bg="#ffffff", fg="#374151").grid(row=0, column=0, columnspan=self.num_res + 1, pady=8)
         for i in range(self.num_proc):
             row_entries = []
-            tk.Label(self.table_frame, text=f"P{i}").grid(row=i + 2, column=0)
+            tk.Label(self.table_frame, text=f"P{i}", bg="#ffffff", font=("Segoe UI", 11)).grid(row=i + 1, column=0, padx=5)
             for j in range(self.num_res):
-                e = tk.Entry(self.table_frame, width=5)
-                e.grid(row=i + 2, column=j + 1)
+                e = tk.Entry(self.table_frame, width=5, font=("Segoe UI", 10), justify="center", bg="#e5e7eb", bd=1, relief="solid")
+                e.grid(row=i + 1, column=j + 1, padx=4, pady=4)
                 row_entries.append(e)
             self.entries_alloc.append(row_entries)
 
-        offset = self.num_proc + 4
+        offset = self.num_proc + 2
+
         # Request Matrix
-        tk.Label(self.table_frame, text="Request Matrix").grid(row=offset, column=0, columnspan=self.num_res + 1, pady=(10, 5))
-        tk.Label(self.table_frame, text="").grid(row=offset + 1, column=0) # Empty cell for spacing
-        for j in range(self.num_res):
-            tk.Label(self.table_frame, text=f"R{j}").grid(row=offset + 1, column=j + 1)
+        tk.Label(self.table_frame, text="Request Matrix", font=("Segoe UI", 13, "bold"), bg="#ffffff", fg="#374151").grid(row=offset, column=0, columnspan=self.num_res + 1, pady=8)
         for i in range(self.num_proc):
             row_entries = []
-            tk.Label(self.table_frame, text=f"P{i}").grid(row=offset + i + 2, column=0)
+            tk.Label(self.table_frame, text=f"P{i}", bg="#ffffff", font=("Segoe UI", 11)).grid(row=offset + i + 1, column=0, padx=5)
             for j in range(self.num_res):
-                e = tk.Entry(self.table_frame, width=5)
-                e.grid(row=offset + i + 2, column=j + 1)
+                e = tk.Entry(self.table_frame, width=5, font=("Segoe UI", 10), justify="center", bg="#e5e7eb", bd=1, relief="solid")
+                e.grid(row=offset + i + 1, column=j + 1, padx=4, pady=4)
                 row_entries.append(e)
             self.entries_req.append(row_entries)
 
-        offset = offset + self.num_proc + 4
-        # Total Resources (Optional)
-        tk.Label(self.table_frame, text="(Optional) Total Resources").grid(row=offset, column=0, columnspan=self.num_res, pady=(10, 5))
+        offset = offset + self.num_proc + 2
+
+        # Total Resources
+        tk.Label(self.table_frame, text="(Optional) Total Resources", font=("Segoe UI", 12, "italic"), bg="#ffffff", fg="#6b7280").grid(row=offset, column=0, columnspan=self.num_res, pady=8)
         for j in range(self.num_res):
-            tk.Label(self.table_frame, text=f"R{j}").grid(row=offset + 1, column=j)
-            e = tk.Entry(self.table_frame, width=5)
-            e.grid(row=offset + 2, column=j)
+            e = tk.Entry(self.table_frame, width=5, font=("Segoe UI", 10), justify="center", bg="#e5e7eb", bd=1, relief="solid")
+            e.grid(row=offset + 1, column=j, padx=4, pady=4)
             self.entries_total.append(e)
 
     def detect_deadlock(self):
         try:
             alloc = [[int(e.get()) for e in row] for row in self.entries_alloc]
             req = [[int(e.get()) for e in row] for row in self.entries_req]
-            total_resources_str = [e.get() for e in self.entries_total]
-            total_resources = [int(val) if val else 0 for val in total_resources_str]
         except ValueError:
-            self.show_popup("All entries in the tables must be integers.")
-            return None, None, None, None
+            messagebox.showerror("Input Error", "All matrix entries must be integers.")
+            return
 
-        if not self.num_proc or not self.num_res or len(alloc) != self.num_proc or len(req) != self.num_proc or any(len(row) != self.num_res for row in alloc) or any(len(row) != self.num_res for row in req) or len(total_resources) != self.num_res:
-            self.show_popup("Please ensure all input tables are correctly filled.")
-            return None, None, None, None
+        total_resources = []
+        for j in range(self.num_res):
+            try:
+                val = self.entries_total[j].get()
+                total_resources.append(int(val) if val else 0)
+            except ValueError:
+                messagebox.showerror("Input Error", "Total Resources must be integers.")
+                return
 
-        # Auto-calculate total resources if not fully provided
         for j in range(self.num_res):
             if total_resources[j] == 0:
-                total_resources[j] = sum(alloc[i][j] for i in range(self.num_proc))
+                total = sum([alloc[i][j] for i in range(self.num_proc)]) + max([req[i][j] for i in range(self.num_proc)])
+                total_resources[j] = total
 
         available = [total_resources[j] - sum(alloc[i][j] for i in range(self.num_proc)) for j in range(self.num_res)]
 
         p, r = self.num_proc, self.num_res
         finish = [False] * p
-        work = list(available)
+        work = available.copy()
         deadlocked = []
 
         while True:
@@ -123,77 +150,62 @@ class DeadlockDetector:
             if not finish[i]:
                 deadlocked.append(i)
 
-        return alloc, req, deadlocked, total_resources, available
+        # Deadlock Conditions
+        condition_1 = any(total_resources[j] <= 1 for j in range(r))
+        condition_2 = any(any(alloc[i][j] > 0 for j in range(r)) and any(req[i][j] > 0 for j in range(r)) for i in range(p))
+        condition_3 = all(req[i][j] > 0 and available[j] == 0 for i in deadlocked for j in range(r) if req[i][j] > 0)
+        condition_4 = len(deadlocked) > 0
+        all_true = all([condition_1, condition_2, condition_3, condition_4])
 
-    def detect_deadlock_and_draw(self):
-        result = self.detect_deadlock()
-        if result:
-            alloc, req, deadlocked, total_resources, available = result
-            msg = f"""
+        result_msg = f"""
 Total Resources: {total_resources}
 Available Resources: {available}
 
-Deadlocked Processes: {', '.join(f'P{i}' for i in deadlocked) or 'None'}
+Deadlock Conditions:
+1. Mutual Exclusion: {'Yes' if condition_1 else 'No'}
+2. Hold and Wait: {'Yes' if condition_2 else 'No'}
+3. No Preemption: {'Yes' if condition_3 else 'No'}
+4. Circular Wait: {'Yes' if condition_4 else 'No'}
 
-Result: {'🛑 Deadlock Detected' if deadlocked else '✅ No Deadlock'}
-            """
-            self.show_popup(msg.strip())
-            self.draw_graph(alloc, req, deadlocked)
+Result: {'Deadlock Detected' if all_true else 'No Deadlock'}
+
+Deadlocked Processes: {["P"+str(i) for i in deadlocked] if deadlocked else "None"}
+"""
+        self.show_popup_result(result_msg, all_true)
+
+    def show_popup_result(self, result_msg, is_deadlock):
+        if is_deadlock:
+            icon = "🛑"  # Red for deadlock
         else:
-            # Error occurred during deadlock detection
-            pass
+            icon = "✅"  # Green for no deadlock
 
-    def draw_graph(self, alloc, req, deadlocked):
-        G = nx.DiGraph()
-        p, r = len(alloc), len(alloc[0])
+        messagebox.showinfo(
+            "Detection Result", 
+            f"{icon} {result_msg.strip()}",
+            icon='info'
+        )
 
-        for i in range(p):
-            G.add_node(f"P{i}", color='red' if i in deadlocked else 'lightgreen')
-        for j in range(r):
-            G.add_node(f"R{j}", color='skyblue')
+    def clear_all(self):
+        self.entry_proc.delete(0, tk.END)
+        self.entry_res.delete(0, tk.END)
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+        self.entries_alloc.clear()
+        self.entries_req.clear()
+        self.entries_total.clear()
 
-        for i in range(p):
-            for j in range(r):
-                if req[i][j] > 0:
-                    G.add_edge(f"P{i}", f"R{j}", label="Request")
-                if alloc[i][j] > 0:
-                    G.add_edge(f"R{j}", f"P{i}", label="Alloc")
-
-        colors = [G.nodes[n]['color'] for n in G.nodes]
-        pos = nx.spring_layout(G, seed=42)
-        edge_labels = nx.get_edge_attributes(G, 'label')
-
-        try:
-            fig, ax = plt.subplots(figsize=(8, 6))
-            nx.draw(G, pos, with_labels=True, node_color=colors, arrows=True,
-                    node_size=1600, font_size=12, edge_color='gray',
-                    arrowstyle='->', arrowsize=20, ax=ax)
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=10, ax=ax)
-            ax.set_title("Resource Allocation Graph (RAG)")
-            fig.tight_layout()
-
-            # Embed the Matplotlib figure in a Tkinter Toplevel window
-            if self.graph_window is None or not tk.Toplevel.winfo_exists(self.graph_window):
-                self.graph_window = tk.Toplevel(self.root)
-                self.graph_window.title("Resource Allocation Graph")
-
-            canvas = FigureCanvasTkAgg(fig, master=self.graph_window)
-            canvas_widget = canvas.get_tk_widget()
-            canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-            canvas.draw()
-
-        except Exception as e:
-            print(f"Error drawing graph: {e}")
-            self.show_popup(f"Error drawing graph: {e}")
-
-    def show_popup(self, message):
-        popup = tk.Toplevel()
-        popup.title("Result")
-        tk.Label(popup, text=message, padx=20, pady=20, justify="left").pack()
-        tk.Button(popup, text="OK", command=popup.destroy).pack(pady=(0, 10))
-
+    def preset_matrices(self):
+        preset_alloc = [[1, 0], [0, 1], [1, 1]]
+        preset_req = [[1, 1], [1, 0], [0, 1]]
+        for i in range(self.num_proc):
+            for j in range(self.num_res):
+                self.entries_alloc[i][j].delete(0, tk.END)
+                self.entries_alloc[i][j].insert(0, preset_alloc[i][j])
+                self.entries_req[i][j].delete(0, tk.END)
+                self.entries_req[i][j].insert(0, preset_req[i][j])
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = DeadlockDetector(root)
     root.mainloop()
+
